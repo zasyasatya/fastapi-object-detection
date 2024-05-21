@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Request, status, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import uuid
 from ultralytics import YOLO
 from ultralytics.yolo.utils.plotting import Annotator
@@ -10,14 +11,32 @@ import os
 import time
 from functools import wraps
 
-imageDirectory = "uploadedFile"
+app = FastAPI()
+
+'''
+    Allow CORS
+'''
+origins = [
+    "http://localhost:3000",  # React
+    "http://localhost:8080",  # Vue.js
+    "http://localhost:8000",  # Angular
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+imageDirectory = "uploadedFile" # store uploaded image in this folder
 
 if not os.path.exists(imageDirectory):
     os.makedirs(imageDirectory)
 
-app = FastAPI()
-
-model = YOLO("dataset_v2_hand-sign.pt") 
+model = YOLO("dataset_v2_hand-sign.pt") #
 
 def rate_limited(max_calls: int, time_frame: int):
     def decorator(func):
@@ -31,7 +50,7 @@ def rate_limited(max_calls: int, time_frame: int):
                 raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded!")
             calls.append(now)
             return await func(*args, *kwargs)
-        
+
         return wrapper
 
     return decorator
@@ -48,7 +67,7 @@ def objectDetector(filename):
     confidence = 0.0
     bbox = results.xyxy # get box coordinates in (top, left, bottom, right) format
     bbox_class = results.class_id # cls, (N, )
-    for r in results: 
+    for r in results:
         '''
             index 0: bounding box
             index 1: mask
@@ -67,42 +86,41 @@ def objectDetector(filename):
 
         # draw label
         annotator.box_label(box, class_name + ' ' + str(int(confidence * 100)) + '%', color=(0, 0, 255), txt_color=(255, 255, 255))
-        frame = annotator.result() 
+        frame = annotator.result()
 
     jsonResult = {
         "status": "error"
     }
 
-    bbox_json = {} 
+    bbox_json = {}
     cv2.imwrite("result.png", frame)
     if class_name is not None and class_name != "":
         print(f"=====CLASSNAME===={class_name}")
         print(f"===========INI BBOX: {bbox}")
         if bbox is not None and len(bbox) > 0:
             x1, y1, x2, y2 = bbox[0]
-            centroid_x = float((x1 + x2) / 2)  # Convert to float
-            centroid_y = float((y1 + y2) / 2)  # Convert to float
-            
+            centroid_x = float((x1 + x2) / 2) 
+            centroid_y = float((y1 + y2) / 2) 
+
             bbox_json = {
-                "x1": float(x1),  # Convert to float
-                "y1": float(y1),  # Convert to float
-                "x2": float(x2),  # Convert to float
-                "y2": float(y2),  # Convert to float
+                "x1": float(x1), 
+                "y1": float(y1), 
+                "x2": float(x2), 
+                "y2": float(y2), 
                 "centroid_x": centroid_x,
                 "centroid_y": centroid_y
             }
-                
+
         jsonResult = {
             "status": "successful",
             "bbox": bbox_json,
             "class_name": class_name,
             "confidence": float(confidence),
-            "path": "result.png",
+             "path": "result.png",
         }
-    
-    return jsonResult
+
     JSONResponse(jsonResult)
-        
+
 
 @app.get("/")
 @rate_limited(max_calls=100, time_frame=60) # decorator to limit request
@@ -131,10 +149,13 @@ async def showImage():
     if (os.path.exists("result.png")):
         imagePath = "result.png"
         return FileResponse(imagePath)
-    else: 
+    else:
         return {"status", "error"}
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info") # adjust port 
+
+
+

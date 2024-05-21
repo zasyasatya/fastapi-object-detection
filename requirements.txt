@@ -1,6 +1,6 @@
-fastapi
-uvicorn
-ultralytics
-supervision
-numpy
-opencv-python-headless
+fastapi==0.111.0
+uvicorn==0.29.0
+ultralytics==8.0.20
+supervision==0.10.0
+numpy==1.24.3
+opencv-python==4.6.0.66
