@@ -1,4 +1,3 @@
-from typing import Union
 from fastapi import FastAPI, File, UploadFile, Request, status, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 import uuid
